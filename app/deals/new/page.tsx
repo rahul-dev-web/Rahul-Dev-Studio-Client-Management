@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { ArrowLeft, CalendarDays, ChevronDown, Mail, Phone, Plus, Save, Trash2 } from "lucide-react";
+import { createClient } from "../../../lib/supabase/browser";
 
 const defaultScopes = ["Responsive website", "Admin dashboard", "Authentication", "Database", "Deployment"];
 const defaultDeliverables = ["Production-ready web application", "Responsive layouts", "Source code and deployment"];
@@ -12,11 +13,61 @@ export default function NewDealPage() {
   const [revisions, setRevisions] = useState("2");
   const [supportDays, setSupportDays] = useState("20");
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [dealCode, setDealCode] = useState("");
+  const [form, setForm] = useState({
+    clientName: "", organization: "", email: "", phone: "", address: "",
+    projectName: "", projectType: "", technology: "", startDate: "", expectedDelivery: "", description: "",
+    totalAmount: "", advanceAmount: "", remainingAmount: "", paymentSchedule: "",
+  });
 
+  function setField(key: keyof typeof form, value: string) { setForm((current) => ({ ...current, [key]: value })); }
   function addItem(setter: React.Dispatch<React.SetStateAction<string[]>>) { setter((items) => [...items, ""]); }
   function updateItem(setter: React.Dispatch<React.SetStateAction<string[]>>, index: number, value: string) { setter((items) => items.map((item, i) => i === index ? value : item)); }
   function removeItem(setter: React.Dispatch<React.SetStateAction<string[]>>, index: number) { setter((items) => items.filter((_, i) => i !== index)); }
-  function handleSubmit(event: FormEvent<HTMLFormElement>) { event.preventDefault(); setSaved(true); window.setTimeout(() => setSaved(false), 2500); }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true); setError(""); setSaved(false); setDealCode("");
+
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { window.location.href = "/login"; return; }
+
+    const total = Number(form.totalAmount || 0);
+    const advance = Number(form.advanceAmount || 0);
+    const remaining = form.remainingAmount === "" ? Math.max(total - advance, 0) : Number(form.remainingAmount);
+
+    const { data: deal, error: dealError } = await supabase.from("deals").insert({
+      developer_id: user.id,
+      client_name: form.clientName.trim(), organization: form.organization.trim(), client_email: form.email.trim(),
+      client_phone: form.phone.trim() || null, client_address: form.address.trim() || null,
+      project_name: form.projectName.trim(), project_type: form.projectType, project_description: form.description.trim() || null,
+      technology: form.technology.trim() || null, start_date: form.startDate || null, expected_delivery_date: form.expectedDelivery || null,
+      total_amount: total, advance_amount: advance, remaining_amount: remaining, payment_schedule: form.paymentSchedule || null,
+      revision_rounds: Number(revisions || 0), support_days: Number(supportDays || 0), status: "draft",
+    }).select("id, deal_code").single();
+
+    if (dealError || !deal) {
+      setError(dealError?.message || "Unable to save the deal."); setSaving(false); return;
+    }
+
+    const scopeRows = scopes.map((title, item_order) => ({ deal_id: deal.id, title: title.trim(), item_order })).filter((row) => row.title);
+    const deliverableRows = deliverables.map((title, item_order) => ({ deal_id: deal.id, title: title.trim(), item_order })).filter((row) => row.title);
+
+    const [scopeResult, deliverableResult] = await Promise.all([
+      scopeRows.length ? supabase.from("deal_scope").insert(scopeRows) : Promise.resolve({ error: null }),
+      deliverableRows.length ? supabase.from("deal_deliverables").insert(deliverableRows) : Promise.resolve({ error: null }),
+    ]);
+
+    if (scopeResult.error || deliverableResult.error) {
+      setError(scopeResult.error?.message || deliverableResult.error?.message || "Deal saved, but some items could not be saved.");
+      setSaving(false); return;
+    }
+
+    setDealCode(deal.deal_code); setSaved(true); setSaving(false);
+  }
 
   return (
     <div className="shell">
@@ -30,16 +81,42 @@ export default function NewDealPage() {
       <main className="main deal-main">
         <div className="form-topbar">
           <div><a className="back-link" href="/"><ArrowLeft size={15} /> Back to dashboard</a><div className="eyebrow">New deal</div><h1>Create New Deal</h1><p className="page-copy">Capture the client, project and commercial terms before creating the agreement.</p></div>
-          <div className="top-actions"><button type="submit" form="deal-form" className="btn primary"><Save size={15} /> Save Draft</button></div>
+          <div className="top-actions"><button type="submit" form="deal-form" className="btn primary" disabled={saving}><Save size={15} /> {saving ? "Saving…" : "Save Draft"}</button></div>
         </div>
 
+        {error && <div className="form-error deal-error">{error}</div>}
+        {saved && <div className="success-banner">Draft saved successfully. Deal ID: <strong>{dealCode}</strong></div>}
+
         <form id="deal-form" className="deal-form" onSubmit={handleSubmit}>
-          <FormSection number="01" title="Client information" description="Who is the agreement with?"><div className="field-grid three"><Field label="Client name" placeholder="e.g. Amit Sharma" required /><Field label="Business / organization" placeholder="e.g. ABC Technologies" required /><Field label="Email" type="email" placeholder="client@example.com" icon={<Mail size={15} />} required /><Field label="Phone" placeholder="+91 98765 43210" icon={<Phone size={15} />} /><Field label="Address" placeholder="Optional client address" wide /></div></FormSection>
-          <FormSection number="02" title="Project information" description="Define the work at a high level."><div className="field-grid three"><Field label="Project name" placeholder="e.g. Business Website" required /><SelectField label="Project type" options={["Website", "Web application", "Mobile app", "Discord bot", "Other"]} /><Field label="Technology" placeholder="e.g. Next.js, Supabase" /><Field label="Start date" type="date" icon={<CalendarDays size={15} />} /><Field label="Expected delivery" type="date" icon={<CalendarDays size={15} />} /><Field label="Project description" placeholder="Short summary of the project and its objective" wide textarea /></div></FormSection>
-          <FormSection number="03" title="Commercial terms" description="Set the financial structure that will appear in the agreement."><div className="field-grid three"><Field label="Total project amount (₹)" type="number" placeholder="15000" required /><Field label="Advance amount (₹)" type="number" placeholder="5000" /><Field label="Remaining amount (₹)" type="number" placeholder="10000" /><SelectField label="Payment schedule" options={["100% advance", "50% advance / 50% on delivery", "Milestone based", "Custom"]} /><Field label="Revision rounds" type="number" value={revisions} onChange={(e) => setRevisions(e.target.value)} /><Field label="Bug-fix support (days)" type="number" value={supportDays} onChange={(e) => setSupportDays(e.target.value)} /></div><div className="helper-note">Default policy: <strong>{revisions || "0"} revision rounds</strong> and <strong>{supportDays || "0"}-day bug-fix support</strong>. These can be changed per deal.</div></FormSection>
+          <FormSection number="01" title="Client information" description="Who is the agreement with?"><div className="field-grid three">
+            <Field label="Client name" placeholder="e.g. Amit Sharma" required value={form.clientName} onChange={(e) => setField("clientName", e.target.value)} />
+            <Field label="Business / organization" placeholder="e.g. ABC Technologies" required value={form.organization} onChange={(e) => setField("organization", e.target.value)} />
+            <Field label="Email" type="email" placeholder="client@example.com" icon={<Mail size={15} />} required value={form.email} onChange={(e) => setField("email", e.target.value)} />
+            <Field label="Phone" placeholder="+91 98765 43210" icon={<Phone size={15} />} value={form.phone} onChange={(e) => setField("phone", e.target.value)} />
+            <Field label="Address" placeholder="Optional client address" wide value={form.address} onChange={(e) => setField("address", e.target.value)} />
+          </div></FormSection>
+
+          <FormSection number="02" title="Project information" description="Define the work at a high level."><div className="field-grid three">
+            <Field label="Project name" placeholder="e.g. Business Website" required value={form.projectName} onChange={(e) => setField("projectName", e.target.value)} />
+            <SelectField label="Project type" value={form.projectType} onChange={(e) => setField("projectType", e.target.value)} options={["Website", "Web application", "Mobile app", "Discord bot", "Other"]} />
+            <Field label="Technology" placeholder="e.g. Next.js, Supabase" value={form.technology} onChange={(e) => setField("technology", e.target.value)} />
+            <Field label="Start date" type="date" icon={<CalendarDays size={15} />} value={form.startDate} onChange={(e) => setField("startDate", e.target.value)} />
+            <Field label="Expected delivery" type="date" icon={<CalendarDays size={15} />} value={form.expectedDelivery} onChange={(e) => setField("expectedDelivery", e.target.value)} />
+            <Field label="Project description" placeholder="Short summary of the project and its objective" wide textarea value={form.description} onChange={(e) => setField("description", e.target.value)} />
+          </div></FormSection>
+
+          <FormSection number="03" title="Commercial terms" description="Set the financial structure that will appear in the agreement."><div className="field-grid three">
+            <Field label="Total project amount (₹)" type="number" placeholder="15000" required value={form.totalAmount} onChange={(e) => setField("totalAmount", e.target.value)} />
+            <Field label="Advance amount (₹)" type="number" placeholder="5000" value={form.advanceAmount} onChange={(e) => setField("advanceAmount", e.target.value)} />
+            <Field label="Remaining amount (₹)" type="number" placeholder="Auto calculated" value={form.remainingAmount} onChange={(e) => setField("remainingAmount", e.target.value)} />
+            <SelectField label="Payment schedule" value={form.paymentSchedule} onChange={(e) => setField("paymentSchedule", e.target.value)} options={["100% advance", "50% advance / 50% on delivery", "Milestone based", "Custom"]} />
+            <Field label="Revision rounds" type="number" value={revisions} onChange={(e) => setRevisions(e.target.value)} />
+            <Field label="Bug-fix support (days)" type="number" value={supportDays} onChange={(e) => setSupportDays(e.target.value)} />
+          </div><div className="helper-note">Default policy: <strong>{revisions || "0"} revision rounds</strong> and <strong>{supportDays || "0"}-day bug-fix support</strong>. These can be changed per deal.</div></FormSection>
+
           <ListSection title="Scope" description="What is included in the development scope?" items={scopes} setter={setScopes} addItem={addItem} updateItem={updateItem} removeItem={removeItem} />
           <ListSection title="Deliverables" description="What will the client receive at handover?" items={deliverables} setter={setDeliverables} addItem={addItem} updateItem={updateItem} removeItem={removeItem} />
-          <section className="deal-actions"><a className="btn" href="/">Cancel</a><button className="btn primary" type="submit"><Save size={15} /> {saved ? "Draft Saved" : "Save Deal Draft"}</button></section>
+          <section className="deal-actions"><a className="btn" href="/">Cancel</a><button className="btn primary" type="submit" disabled={saving}><Save size={15} /> {saving ? "Saving…" : saved ? "Draft Saved" : "Save Deal Draft"}</button></section>
         </form>
       </main>
     </div>
@@ -48,8 +125,8 @@ export default function NewDealPage() {
 
 function FormSection({ number, title, description, children }: { number: string; title: string; description: string; children: React.ReactNode }) { return <section className="form-section"><div className="section-heading"><span>{number}</span><div><h2>{title}</h2><p>{description}</p></div></div>{children}</section>; }
 
-function Field({ label, placeholder, type = "text", required, wide, icon, textarea, value, onChange }: { label: string; placeholder?: string; type?: string; required?: boolean; wide?: boolean; icon?: React.ReactNode; textarea?: boolean; value?: string; onChange?: React.ChangeEventHandler<HTMLInputElement> }) { return <label className={`field ${wide ? "wide" : ""}`}><span>{label}{required && <em>*</em>}</span><div className={`control ${icon ? "has-icon" : ""}`}>{icon}{textarea ? <textarea placeholder={placeholder} rows={4} required={required} /> : <input type={type} placeholder={placeholder} required={required} value={value} onChange={onChange} />}</div></label>; }
+function Field({ label, placeholder, type = "text", required, wide, icon, textarea, value, onChange }: { label: string; placeholder?: string; type?: string; required?: boolean; wide?: boolean; icon?: React.ReactNode; textarea?: boolean; value?: string; onChange?: React.ChangeEventHandler<HTMLInputElement> }) { return <label className={`field ${wide ? "wide" : ""}`}><span>{label}{required && <em>*</em>}</span><div className={`control ${icon ? "has-icon" : ""}`}>{icon}{textarea ? <textarea placeholder={placeholder} rows={4} required={required} value={value} onChange={onChange as React.ChangeEventHandler<HTMLTextAreaElement>} /> : <input type={type} placeholder={placeholder} required={required} value={value} onChange={onChange} />}</div></label>; }
 
-function SelectField({ label, options }: { label: string; options: string[] }) { return <label className="field"><span>{label}</span><div className="control select-control"><select defaultValue=""><option value="" disabled>Select {label.toLowerCase()}</option>{options.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={15} /></div></label>; }
+function SelectField({ label, options, value, onChange }: { label: string; options: string[]; value: string; onChange: React.ChangeEventHandler<HTMLSelectElement> }) { return <label className="field"><span>{label}</span><div className="control select-control"><select value={value} onChange={onChange}><option value="" disabled>Select {label.toLowerCase()}</option>{options.map((option) => <option key={option}>{option}</option>)}</select><ChevronDown size={15} /></div></label>; }
 
 function ListSection({ title, description, items, setter, addItem, updateItem, removeItem }: { title: string; description: string; items: string[]; setter: React.Dispatch<React.SetStateAction<string[]>>; addItem: (setter: React.Dispatch<React.SetStateAction<string[]>>) => void; updateItem: (setter: React.Dispatch<React.SetStateAction<string[]>>, index: number, value: string) => void; removeItem: (setter: React.Dispatch<React.SetStateAction<string[]>>, index: number) => void }) { return <section className="form-section"><div className="section-heading"><span>+</span><div><h2>{title}</h2><p>{description}</p></div></div><div className="repeat-list">{items.map((item, index) => <div className="repeat-row" key={`${title}-${index}`}><span className="item-index">{index + 1}</span><input value={item} onChange={(e) => updateItem(setter, index, e.target.value)} placeholder={`Add ${title.toLowerCase()} item`} /><button type="button" className="icon-btn" onClick={() => removeItem(setter, index)} aria-label={`Remove ${title} item`}><Trash2 size={15} /></button></div>)}</div><button type="button" className="add-row" onClick={() => addItem(setter)}><Plus size={15} /> Add {title} item</button></section>; }
