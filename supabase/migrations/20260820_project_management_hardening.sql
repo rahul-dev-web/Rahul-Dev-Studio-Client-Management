@@ -63,6 +63,6 @@ revoke execute on function public.review_correction_request(uuid,public.correcti
 revoke execute on function public.update_project_topic_status(uuid,text) from anon;
 
 -- Trigger functions are invoked by PostgreSQL triggers, not directly through PostgREST.
-revoke execute on function public.prevent_signature_mutation() from anon, authenticated;
-revoke execute on function public.prevent_signed_agreement_core_mutation() from anon, authenticated;
-revoke execute on function public.prevent_signed_agreement_version_mutation() from anon, authenticated;
+revoke execute on function public.prevent_signature_mutation() from public, anon, authenticated;
+revoke execute on function public.prevent_signed_agreement_core_mutation() from public, anon, authenticated;
+revoke execute on function public.prevent_signed_agreement_version_mutation() from public, anon, authenticated;
