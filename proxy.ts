@@ -10,10 +10,13 @@ export async function proxy(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // Fail closed when Supabase configuration is missing instead of invoking
-  // createServerClient with undefined credentials and crashing the deployment.
+  // Never construct the Supabase client with missing runtime credentials.
+  // Returning a clear 503 also avoids a redirect loop on /login.
   if (!supabaseUrl || !supabaseAnonKey) {
-    return NextResponse.redirect(new URL("/login?error=configuration", request.url));
+    return new NextResponse("Supabase configuration is missing.", {
+      status: 503,
+      headers: { "content-type": "text/plain; charset=utf-8" },
+    });
   }
 
   let response = NextResponse.next({ request });
