@@ -24,6 +24,8 @@ export default function LoginPage() {
       return;
     }
 
+    // middleware resolves the authenticated profile role and routes developers
+    // to the workspace and clients to the isolated client portal.
     window.location.href = "/";
   }
 
@@ -32,12 +34,12 @@ export default function LoginPage() {
       <section className="auth-card">
         <div className="brand-mark auth-mark">R</div>
         <div className="eyebrow">Rahul Development Studio</div>
-        <h1>Developer login</h1>
-        <p className="auth-copy">Sign in to manage deals, agreements, projects and client handovers.</p>
+        <h1>Secure portal login</h1>
+        <p className="auth-copy">Sign in to access your authorized developer workspace or client project portal.</p>
 
         <form className="auth-form" onSubmit={handleSubmit}>
-          <label>Email<div className="input-wrap"><Mail size={16} /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required /></div></label>
-          <label>Password<div className="input-wrap"><LockKeyhole size={16} /><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" required /></div></label>
+          <label>Email<div className="input-wrap"><Mail size={16} /><input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" required /></div></label>
+          <label>Password<div className="input-wrap"><LockKeyhole size={16} /><input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" autoComplete="current-password" required /></div></label>
           {error && <p className="form-error">{error}</p>}
           <button className="btn primary auth-submit" disabled={loading}>{loading ? "Signing in…" : "Sign in"}<ArrowRight size={15} /></button>
         </form>
