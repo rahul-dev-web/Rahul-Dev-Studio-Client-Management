@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./auth.css";
+import "./premium.css";
 
 export const metadata: Metadata = {
   title: "Rahul Development Studio — Client Management",
