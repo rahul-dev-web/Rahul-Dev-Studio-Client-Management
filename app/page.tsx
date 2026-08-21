@@ -17,29 +17,42 @@ export default function Dashboard() {
 
   useEffect(() => {
     (async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { window.location.href = "/login"; return; }
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) { window.location.href = "/login"; return; }
 
-      const [dealsResult, agreementsResult, projectsResult] = await Promise.all([
-        supabase.from("deals").select("status").eq("developer_id", user.id),
-        supabase.from("agreements").select("status").eq("status", "sent").or("status.eq.under_review,status.eq.correction_requested"),
-        supabase.from("projects").select("id,project_code,project_name,status,deal_id").order("created_at", { ascending: false }),
-      ]);
-      const firstError = dealsResult.error || agreementsResult.error || projectsResult.error;
-      if (firstError) { setError(firstError.message); setLoading(false); return; }
+        // Keep every dashboard query scoped to the authenticated developer.
+        const [dealsResult, agreementsResult, projectsResult] = await Promise.all([
+          supabase.from("deals").select("status").eq("developer_id", user.id),
+          supabase
+            .from("agreements")
+            .select("status")
+            .in("status", ["sent", "under_review", "correction_requested", "client_signed"]),
+          supabase
+            .from("projects")
+            .select("id,project_code,project_name,status,deal_id")
+            .order("created_at", { ascending: false }),
+        ]);
 
-      const liveProjects = projectsResult.data || [];
-      const { data: liveTopics, error: topicError } = liveProjects.length
-        ? await supabase.from("phase_topics").select("project_id,status").in("project_id", liveProjects.map(p => p.id))
-        : { data: [], error: null };
-      if (topicError) { setError(topicError.message); setLoading(false); return; }
+        const firstError = dealsResult.error || agreementsResult.error || projectsResult.error;
+        if (firstError) { setError(firstError.message); setLoading(false); return; }
 
-      setDeals(dealsResult.data || []);
-      setAgreements(agreementsResult.data || []);
-      setProjects(liveProjects);
-      setTopics(liveTopics || []);
-      setLoading(false);
+        const liveProjects = projectsResult.data || [];
+        const { data: liveTopics, error: topicError } = liveProjects.length
+          ? await supabase.from("phase_topics").select("project_id,status").in("project_id", liveProjects.map(p => p.id))
+          : { data: [], error: null };
+        if (topicError) { setError(topicError.message); setLoading(false); return; }
+
+        setDeals(dealsResult.data || []);
+        setAgreements(agreementsResult.data || []);
+        setProjects(liveProjects);
+        setTopics(liveTopics || []);
+        setLoading(false);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unable to load the dashboard.");
+        setLoading(false);
+      }
     })();
   }, []);
 
