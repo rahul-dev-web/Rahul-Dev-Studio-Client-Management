@@ -6,13 +6,21 @@ const PUBLIC_PREFIXES = ["/agreement"];
 const CLIENT_ONLY_PREFIXES = ["/client"];
 const PASSWORD_CHANGE_PATH = "/client/change-password";
 
-export async function proxy(request: NextRequest) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+function getSupabaseConfig() {
+  return {
+    url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+    key:
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  };
+}
 
-  // Never construct the Supabase client with missing runtime credentials.
-  // Returning a clear 503 also avoids a redirect loop on /login.
-  if (!supabaseUrl || !supabaseAnonKey) {
+export async function proxy(request: NextRequest) {
+  const { url: supabaseUrl, key: supabaseKey } = getSupabaseConfig();
+
+  // Support both Supabase's current publishable key and the legacy anon-key
+  // environment variable so existing Vercel configurations keep working.
+  if (!supabaseUrl || !supabaseKey) {
     return new NextResponse("Supabase configuration is missing.", {
       status: 503,
       headers: { "content-type": "text/plain; charset=utf-8" },
@@ -21,7 +29,7 @@ export async function proxy(request: NextRequest) {
 
   let response = NextResponse.next({ request });
 
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+  const supabase = createServerClient(supabaseUrl, supabaseKey, {
     cookies: {
       getAll() {
         return request.cookies.getAll();
