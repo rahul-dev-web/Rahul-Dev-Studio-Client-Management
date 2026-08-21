@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./auth.css";
 import "./premium.css";
+import MobileNav from "./mobile-nav";
 
 export const metadata: Metadata = {
   title: "Rahul Development Studio — Client Management",
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>{children}<MobileNav /></body>
     </html>
   );
 }
