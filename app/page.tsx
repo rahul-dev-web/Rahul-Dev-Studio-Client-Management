@@ -4,13 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, BriefcaseBusiness, CheckCircle2, FileSignature, FolderKanban, Plus, Settings2, Sparkles, Users } from "lucide-react";
 import { createClient } from "../lib/supabase/browser";
 
+type Deal = { id: string; status: string };
 type Project = { id: string; project_code: string; project_name: string | null; status: string; deal_id: string };
 type Topic = { project_id: string; status: string };
 
 export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
-  const [deals, setDeals] = useState<{ status: string }[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
   const [agreements, setAgreements] = useState<{ status: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -21,20 +22,44 @@ export default function Dashboard() {
         const supabase = createClient();
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { window.location.href = "/login"; return; }
-        const [dealsResult, agreementsResult, projectsResult] = await Promise.all([
-          supabase.from("deals").select("status").eq("developer_id", user.id),
-          supabase.from("agreements").select("status").in("status", ["sent", "under_review", "correction_requested", "client_signed"]),
-          supabase.from("projects").select("id,project_code,project_name,status,deal_id").order("created_at", { ascending: false }),
+
+        // Scope the entire dashboard to the signed-in developer. This keeps the
+        // UI correct even if more developer accounts are added later.
+        const { data: liveDeals, error: dealsError } = await supabase
+          .from("deals")
+          .select("id,status")
+          .eq("developer_id", user.id);
+        if (dealsError) { setError(dealsError.message); setLoading(false); return; }
+
+        const dealRows = liveDeals || [];
+        const dealIds = dealRows.map(d => d.id);
+        const [agreementsResult, projectsResult] = await Promise.all([
+          dealIds.length
+            ? supabase.from("agreements").select("status").in("deal_id", dealIds).in("status", ["sent", "under_review", "correction_requested", "client_signed"])
+            : Promise.resolve({ data: [], error: null }),
+          dealIds.length
+            ? supabase.from("projects").select("id,project_code,project_name,status,deal_id").in("deal_id", dealIds).order("created_at", { ascending: false })
+            : Promise.resolve({ data: [], error: null }),
         ]);
-        const firstError = dealsResult.error || agreementsResult.error || projectsResult.error;
+
+        const firstError = agreementsResult.error || projectsResult.error;
         if (firstError) { setError(firstError.message); setLoading(false); return; }
+
         const liveProjects = projectsResult.data || [];
         const { data: liveTopics, error: topicError } = liveProjects.length
           ? await supabase.from("phase_topics").select("project_id,status").in("project_id", liveProjects.map(p => p.id))
           : { data: [], error: null };
         if (topicError) { setError(topicError.message); setLoading(false); return; }
-        setDeals(dealsResult.data || []); setAgreements(agreementsResult.data || []); setProjects(liveProjects); setTopics(liveTopics || []); setLoading(false);
-      } catch (err) { setError(err instanceof Error ? err.message : "Unable to load the dashboard."); setLoading(false); }
+
+        setDeals(dealRows);
+        setAgreements(agreementsResult.data || []);
+        setProjects(liveProjects);
+        setTopics(liveTopics || []);
+        setLoading(false);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unable to load the dashboard.");
+        setLoading(false);
+      }
     })();
   }, []);
 
