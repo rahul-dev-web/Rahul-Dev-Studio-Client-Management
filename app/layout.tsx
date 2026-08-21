@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import "./auth.css";
 import "./premium.css";
+import "./deal-premium.css";
 import MobileNav from "./mobile-nav";
 
 export const metadata: Metadata = {
