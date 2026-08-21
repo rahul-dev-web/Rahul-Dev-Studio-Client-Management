@@ -17,14 +17,50 @@ export default function LoginPage() {
     setError("");
     setMessage("");
     setLoading(true);
-    const supabase = createClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
-    if (signInError) {
-      setError(signInError.message);
+
+    try {
+      const supabase = createClient();
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+
+      if (signInError || !data.user) {
+        setError(signInError?.message || "Unable to sign in. Please check your credentials.");
+        setLoading(false);
+        return;
+      }
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", data.user.id)
+        .maybeSingle();
+
+      if (profileError) {
+        await supabase.auth.signOut();
+        setError("Your account is authenticated, but its workspace role could not be verified.");
+        setLoading(false);
+        return;
+      }
+
+      if (profile?.role === "client") {
+        window.location.href = "/client";
+        return;
+      }
+
+      if (profile?.role === "developer") {
+        window.location.href = "/";
+        return;
+      }
+
+      await supabase.auth.signOut();
+      setError("This account does not have an authorized workspace role yet.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to sign in.");
+    } finally {
       setLoading(false);
-      return;
     }
-    window.location.href = "/";
   }
 
   async function sendReset() {
