@@ -1,5 +1,6 @@
 "use client";
 
+import "./auth-premium.css";
 import { FormEvent, useState } from "react";
 import { ArrowRight, CheckCircle2, KeyRound, LockKeyhole, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import { createClient } from "../../lib/supabase/browser";
