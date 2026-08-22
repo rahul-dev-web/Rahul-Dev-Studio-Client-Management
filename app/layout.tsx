@@ -3,6 +3,7 @@ import "./globals.css";
 import "./auth.css";
 import "./premium.css";
 import "./deal-premium.css";
+import "./mobile-polish.css";
 import MobileNav from "./mobile-nav";
 
 const SITE_URL = "https://rahul-dev-studio-client-management.vercel.app";
