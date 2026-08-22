@@ -1,4 +1,9 @@
 /* Production mobile polish — keep dashboard information readable at 360–430px. */
+.mobile-more-backdrop{position:fixed;inset:0;z-index:80;border:0;background:rgba(0,0,0,.38);backdrop-filter:blur(3px);cursor:pointer}
+.mobile-more-sheet{position:fixed;z-index:90;left:12px;right:12px;bottom:calc(82px + env(safe-area-inset-bottom));padding:14px;background:#fff;border:1px solid #e5e7eb;border-radius:16px;box-shadow:0 24px 70px rgba(17,19,24,.2)}
+.mobile-more-head{display:flex;align-items:center;justify-content:space-between;padding:2px 2px 12px;border-bottom:1px solid #eef0f2}
+.mobile-more-head strong{font-size:13px}.mobile-more-head button{display:grid;place-items:center;width:34px;height:34px;border:1px solid #e5e7eb;background:#fff;border-radius:9px}
+.mobile-more-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.mobile-more-grid a{display:flex;align-items:center;gap:9px;min-height:48px;padding:10px 11px;border:1px solid #e5e7eb;border-radius:10px;color:#111318;text-decoration:none;font-size:11px;font-weight:650}.mobile-more-grid a.active{background:#111318;color:#fff;border-color:#111318}
 @media (max-width: 640px) {
   body { overflow-x: hidden; }
   .main { padding: 18px 14px calc(104px + env(safe-area-inset-bottom)); }
@@ -30,10 +35,11 @@
   .timeline-item { padding: 14px 0; }
   .record-row { align-items: flex-start; }
   .mobile-nav { bottom: max(10px, env(safe-area-inset-bottom)); }
-  .mobile-nav a { min-height: 58px; }
+  .mobile-nav a,.mobile-nav button { min-height: 58px; }
+  .mobile-nav button{border:0;background:transparent;color:inherit;font:inherit;display:grid;place-items:center;gap:3px;padding:0}
   button, .btn, a { -webkit-tap-highlight-color: transparent; }
 }
-
 @media (min-width: 641px) {
   .mobile-polish-only { display: none; }
+  .mobile-more-backdrop,.mobile-more-sheet{display:none!important}
 }
