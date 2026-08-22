@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState, type ReactNode } from "react";
 import { ArrowLeft, Check, Copy, Download, KeyRound, MessageSquare, PenLine, Send, ShieldCheck } from "lucide-react";
 import { createClient } from "../../../lib/supabase/browser";
 
@@ -41,5 +41,5 @@ export default function AgreementDetailPage({params}:{params:{id:string}}){
 }
 function money(value:number){return new Intl.NumberFormat("en-IN",{style:"currency",currency:"INR",maximumFractionDigits:2}).format(Number(value||0));}
 function Meta({label,value}:{label:string;value:string}){return <div><span>{label}</span><strong>{value}</strong></div>}
-function Section({title,children}:{title:string;children:React.ReactNode}){return <section className="agreement-section"><h3>{title}</h3>{children}</section>}
+function Section({title,children}:{title:string;children:ReactNode}){return <section className="agreement-section"><h3>{title}</h3>{children}</section>}
 function Info({items}:{items:string[][]}){return <div className="info-grid">{items.map(([label,value])=><div key={label}><span>{label}</span><strong>{value}</strong></div>)}</div>}
