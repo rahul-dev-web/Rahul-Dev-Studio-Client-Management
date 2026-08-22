@@ -1,7 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login"];
+// Authentication pages that must remain accessible without an active session.
+// The password-reset page is intentionally public because Supabase creates the
+// recovery session from the link before the user chooses a new password.
+const PUBLIC_PATHS = ["/login", "/reset-password"];
 const PUBLIC_PREFIXES = ["/agreement"];
 const CLIENT_ONLY_PREFIXES = ["/client"];
 const PASSWORD_CHANGE_PATH = "/client/change-password";
@@ -52,6 +55,9 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (isPublic) {
+    // /reset-password must stay accessible even when Supabase has created the
+    // temporary recovery session. Only /login should redirect an already
+    // authenticated user to their workspace.
     if (user && pathname === "/login") {
       const { data: profile } = await supabase
         .from("profiles")
