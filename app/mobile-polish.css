@@ -1,0 +1,39 @@
+/* Production mobile polish — keep dashboard information readable at 360–430px. */
+@media (max-width: 640px) {
+  body { overflow-x: hidden; }
+  .main { padding: 18px 14px calc(104px + env(safe-area-inset-bottom)); }
+  .topbar { gap: 12px; margin-bottom: 18px; }
+  .topbar h1 { font-size: 25px; }
+  .top-actions { width: 100%; }
+  .top-actions .btn { min-height: 42px; flex: 1; }
+  .hero-strip { border-radius: 14px; padding: 18px; margin-bottom: 14px; }
+  .metrics { gap: 9px; }
+  .metric { min-width: 0; padding: 13px; border-radius: 12px; }
+  .metric-value { font-size: 23px; }
+  .panel { padding: 15px; border-radius: 13px; }
+  .panel-header { gap: 10px; }
+  .project { grid-template-columns: minmax(0, 1fr) auto; gap: 8px 10px; padding: 14px 0; }
+  .project-main { grid-column: 1; min-width: 0; }
+  .project > .status { grid-column: 2; grid-row: 1; justify-self: end; max-width: 118px; }
+  .project-progress { grid-column: 1 / -1; width: 100%; }
+  .project-status { display: none; }
+  .project-name { font-size: 12px; }
+  .project-client { font-size: 10px; }
+  .quick-actions { gap: 8px; }
+  .quick-actions a { min-height: 52px; padding: 12px; }
+  .search-box input { width: min(42vw, 150px); }
+  .client-header { height: 64px; padding: 0 14px; }
+  .client-main { width: calc(100% - 24px); padding: 24px 0 calc(104px + env(safe-area-inset-bottom)); }
+  .client-hero { grid-template-columns: 1fr; gap: 20px; padding: 18px; border-radius: 14px; }
+  .client-hero h2 { font-size: 20px; }
+  .client-grid { grid-template-columns: 1fr; gap: 12px; }
+  .timeline-item { padding: 14px 0; }
+  .record-row { align-items: flex-start; }
+  .mobile-nav { bottom: max(10px, env(safe-area-inset-bottom)); }
+  .mobile-nav a { min-height: 58px; }
+  button, .btn, a { -webkit-tap-highlight-color: transparent; }
+}
+
+@media (min-width: 641px) {
+  .mobile-polish-only { display: none; }
+}
