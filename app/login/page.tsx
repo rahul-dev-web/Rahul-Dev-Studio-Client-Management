@@ -5,6 +5,8 @@ import { FormEvent, useState } from "react";
 import { ArrowRight, CheckCircle2, KeyRound, LockKeyhole, Mail, ShieldCheck, Sparkles } from "lucide-react";
 import { createClient } from "../../lib/supabase/browser";
 
+const CHANNEL_URL = "https://whatsapp.com/channel/0029VbCaUAIKQuJSdCcDnL2m";
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -52,6 +54,7 @@ export default function LoginPage() {
         <div className="auth-icon"><LockKeyhole size={19}/></div><div className="eyebrow">WELCOME BACK</div><h1>Sign in to your workspace</h1><p className="auth-copy">Use your authorized account to continue to your developer or client portal.</p>
         <form className="auth-form" onSubmit={handleSubmit}><label>Email address<div className="input-wrap"><Mail size={16}/><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" autoComplete="email" required/></div></label><label>Password<div className="input-wrap"><LockKeyhole size={16}/><input type="password" value={password} onChange={e=>setPassword(e.target.value)} placeholder="Enter your password" autoComplete="current-password" required/></div></label>{error && <p className="form-error">{error}</p>}{message && <p className="auth-success"><CheckCircle2 size={15}/>{message}</p>}<button className="btn primary auth-submit" disabled={loading}>{loading ? "Signing in…" : "Continue securely"}<ArrowRight size={15}/></button></form>
         <button className="auth-forgot" type="button" disabled={resetting} onClick={sendReset}><KeyRound size={14}/>{resetting ? "Sending reset link…" : "Forgot password? Send reset link"}</button><div className="auth-security-note"><LockKeyhole size={14}/><span>Authentication is handled securely by Supabase Auth. Your password is never stored in the application database.</span></div>
+        <a href={CHANNEL_URL} target="_blank" rel="noreferrer" className="auth-channel-link">Follow RDS studio updates on WhatsApp Channel <span aria-hidden="true">↗</span></a>
       </section>
     </section>
   </main>;
