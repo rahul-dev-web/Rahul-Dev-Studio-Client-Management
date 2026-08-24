@@ -6,7 +6,7 @@ import { createClient } from "../../lib/supabase/browser";
 
 type Project={id:string;project_code:string;project_name:string;status:string;start_date:string|null;expected_delivery_date:string|null;development_completed_at?:string|null;handover_confirmed_at?:string|null;handover_note?:string|null};
 type Phase={id:string;project_id:string;name:string;description:string|null;phase_order:number};
-type Topic={id:string;project_id:string;phase_id:string;title:string;description:string|null;status:"pending"|"in_progress"|"completed"};
+type Topic={id:string;phase_id:string;title:string;description:string|null;status:"pending"|"in_progress"|"completed"};
 type History={id:string;project_id:string;phase_id:string|null;topic_id:string|null;changed_by:string|null;progress_percent:number;old_status:string|null;new_status:string|null;note:string|null;created_at:string};
 
 const formatDate=(value:string)=>new Intl.DateTimeFormat("en-IN",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}).format(new Date(value));
@@ -14,13 +14,25 @@ const formatDate=(value:string)=>new Intl.DateTimeFormat("en-IN",{day:"2-digit",
 export default function ProjectsPage(){
  const [projects,setProjects]=useState<Project[]>([]),[selected,setSelected]=useState<Project|null>(null),[phases,setPhases]=useState<Phase[]>([]),[topics,setTopics]=useState<Topic[]>([]),[history,setHistory]=useState<History[]>([]),[newPhase,setNewPhase]=useState(""),[newTopic,setNewTopic]=useState<Record<string,string>>({}),[handoverNote,setHandoverNote]=useState(""),[handoverConfirmed,setHandoverConfirmed]=useState(false),[saving,setSaving]=useState(false),[loading,setLoading]=useState(true),[message,setMessage]=useState(""),[error,setError]=useState("");
  async function loadProjects(){const supabase=createClient();const {data,error}=await supabase.from("projects").select("id,project_code,project_name,status,start_date,expected_delivery_date,development_completed_at,handover_confirmed_at,handover_note").order("created_at",{ascending:false});if(error){setError(error.message);return;}setProjects(data||[]);if(!selected&&data?.[0])setSelected(data[0]);}
- async function loadProject(id:string){const supabase=createClient();const [{data:p,error:phaseError},{data:t,error:topicError},{data:h,error:historyError}]=await Promise.all([supabase.from("project_phases").select("*").eq("project_id",id).order("phase_order"),supabase.from("phase_topics").select("*").eq("project_id",id).order("created_at"),supabase.from("progress_history").select("*").eq("project_id",id).order("created_at",{ascending:false}).limit(30)]);if(phaseError||topicError||historyError){setError(phaseError?.message||topicError?.message||historyError?.message||"Unable to load project details.");return;}setPhases(p||[]);setTopics(t||[]);setHistory(h||[]);}
+ async function loadProject(id:string){
+  const supabase=createClient();
+  setError("");
+  const {data:p,error:phaseError}=await supabase.from("project_phases").select("*").eq("project_id",id).order("phase_order");
+  if(phaseError){setError(phaseError.message);return;}
+  const phaseIds=(p||[]).map(phase=>phase.id);
+  const [topicResult,historyResult]=await Promise.all([
+   phaseIds.length?supabase.from("phase_topics").select("*").in("phase_id",phaseIds).order("created_at"):Promise.resolve({data:[],error:null}),
+   supabase.from("progress_history").select("*").eq("project_id",id).order("created_at",{ascending:false}).limit(30)
+  ]);
+  if(topicResult.error||historyResult.error){setError(topicResult.error?.message||historyResult.error?.message||"Unable to load project details.");return;}
+  setPhases(p||[]);setTopics(topicResult.data||[]);setHistory(historyResult.data||[]);
+ }
  useEffect(()=>{let mounted=true;(async()=>{try{await loadProjects()}catch(e){if(mounted)setError(e instanceof Error?e.message:"Unable to load projects")}finally{if(mounted)setLoading(false)}})();return()=>{mounted=false}},[]);
  useEffect(()=>{if(selected){loadProject(selected.id);setHandoverNote(selected.handover_note||"");setHandoverConfirmed(false)}},[selected?.id]);
  const progress=useMemo(()=>topics.length?Math.round(topics.filter(t=>t.status==="completed").length/topics.length*100):0,[topics]);
  const developmentComplete=selected?.status==="development_complete" || (topics.length>0&&progress===100);
  async function addPhase(){if(!selected||!newPhase.trim())return;setSaving(true);const supabase=createClient();const {data,error}=await supabase.from("project_phases").insert({project_id:selected.id,name:newPhase.trim(),phase_order:phases.length+1}).select().single();if(!error&&data){setPhases([...phases,data]);setNewPhase("");setMessage("Phase added")}else if(error)setError(error.message);setSaving(false)}
- async function addTopic(phaseId:string){const title=newTopic[phaseId]?.trim();if(!title||!selected)return;setSaving(true);const supabase=createClient();const {data,error}=await supabase.from("phase_topics").insert({project_id:selected.id,phase_id:phaseId,title,status:"pending"}).select().single();if(!error&&data){setTopics([...topics,data]);setNewTopic({...newTopic,[phaseId]:""});setMessage("Topic added")}else if(error)setError(error.message);setSaving(false)}
+ async function addTopic(phaseId:string){const title=newTopic[phaseId]?.trim();if(!title||!selected)return;setSaving(true);const supabase=createClient();const phaseTopics=topics.filter(t=>t.phase_id===phaseId);const {data,error}=await supabase.from("phase_topics").insert({phase_id:phaseId,title,status:"pending",topic_order:phaseTopics.length+1}).select().single();if(!error&&data){setTopics([...topics,data]);setNewTopic({...newTopic,[phaseId]:""});setMessage("Topic added")}else if(error)setError(error.message);setSaving(false)}
  async function updateTopic(topic:Topic,status:Topic["status"]){const supabase=createClient();const {data,error}=await supabase.rpc("update_project_topic_status",{p_topic_id:topic.id,p_status:status});if(!error){setTopics(topics.map(t=>t.id===topic.id?{...t,status}:t));setSelected({...selected!,status:data?.project_status||selected!.status});const {data:latest}=await supabase.from("progress_history").select("*").eq("project_id",selected!.id).order("created_at",{ascending:false}).limit(30);setHistory(latest||[]);setMessage("Progress saved")}else setError(error.message)}
  async function removeTopic(id:string){const supabase=createClient();const {error}=await supabase.from("phase_topics").delete().eq("id",id);if(!error){setTopics(topics.filter(t=>t.id!==id));setMessage("Topic removed")}else setError(error.message)}
  async function confirmHandover(){if(!selected||!developmentComplete||!handoverConfirmed)return;setSaving(true);const supabase=createClient();const {data,error}=await supabase.rpc("confirm_project_handover",{p_project_id:selected.id,p_handover_note:handoverNote.trim()||null});if(!error){const completedAt=data?.completed_at||new Date().toISOString();const completed={...selected,status:"completed",handover_confirmed_at:completedAt,handover_note:handoverNote.trim()||null};setSelected(completed);setProjects(projects.map(p=>p.id===selected.id?{...p,...completed}:p));setMessage("Handover recorded. Deal is now completed.")}else setError(error.message);setSaving(false)}
