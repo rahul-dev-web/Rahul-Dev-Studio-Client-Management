@@ -19,8 +19,20 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabase.functions.invoke("provision-client-portal", { body: { agreementId } });
     if (error) {
-      console.error("Client provisioning Edge Function failed", error);
-      return NextResponse.json({ error: error.message || "Unable to provision client portal." }, { status: 502 });
+      let message = error.message || "Unable to provision client portal.";
+      let status = 502;
+      const context = (error as { context?: { status?: number; json?: () => Promise<unknown> } }).context;
+      if (context?.status) status = context.status;
+      if (context?.json) {
+        try {
+          const detail = await context.json() as { error?: string; message?: string };
+          message = detail?.error || detail?.message || message;
+        } catch {
+          // Keep the original error message if the response body cannot be parsed.
+        }
+      }
+      console.error("Client provisioning Edge Function failed", { message, status, error });
+      return NextResponse.json({ error: message }, { status });
     }
     if (data?.error) return NextResponse.json({ error: data.error }, { status: 400 });
     return NextResponse.json(data);
