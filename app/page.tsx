@@ -6,10 +6,12 @@ import { createClient } from "../lib/supabase/browser";
 
 type Deal = { id: string; status: string };
 type Project = { id: string; project_code: string; project_name: string | null; status: string; deal_id: string };
-type Topic = { project_id: string; status: string };
+type Phase = { id: string; project_id: string };
+type Topic = { phase_id: string; status: string };
 
 export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [phases, setPhases] = useState<Phase[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [agreements, setAgreements] = useState<{ status: string }[]>([]);
@@ -23,8 +25,6 @@ export default function Dashboard() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) { window.location.href = "/login"; return; }
 
-        // Scope the entire dashboard to the signed-in developer. This keeps the
-        // UI correct even if more developer accounts are added later.
         const { data: liveDeals, error: dealsError } = await supabase
           .from("deals")
           .select("id,status")
@@ -46,14 +46,21 @@ export default function Dashboard() {
         if (firstError) { setError(firstError.message); setLoading(false); return; }
 
         const liveProjects = projectsResult.data || [];
-        const { data: liveTopics, error: topicError } = liveProjects.length
-          ? await supabase.from("phase_topics").select("project_id,status").in("project_id", liveProjects.map(p => p.id))
+        const { data: livePhases, error: phaseError } = liveProjects.length
+          ? await supabase.from("project_phases").select("id,project_id").in("project_id", liveProjects.map(p => p.id))
+          : { data: [], error: null };
+        if (phaseError) { setError(phaseError.message); setLoading(false); return; }
+
+        const phaseRows = livePhases || [];
+        const { data: liveTopics, error: topicError } = phaseRows.length
+          ? await supabase.from("phase_topics").select("phase_id,status").in("phase_id", phaseRows.map(p => p.id))
           : { data: [], error: null };
         if (topicError) { setError(topicError.message); setLoading(false); return; }
 
         setDeals(dealRows);
         setAgreements(agreementsResult.data || []);
         setProjects(liveProjects);
+        setPhases(phaseRows);
         setTopics(liveTopics || []);
         setLoading(false);
       } catch (err) {
@@ -68,10 +75,11 @@ export default function Dashboard() {
   const activeProjects = projects.filter(p => ["in_development", "development_complete", "handover"].includes(p.status)).length;
   const completedProjects = projects.filter(p => p.status === "completed").length;
   const projectRows = useMemo(() => projects.slice(0, 6).map(project => {
-    const pts = topics.filter(topic => topic.project_id === project.id);
+    const phaseIds = phases.filter(phase => phase.project_id === project.id).map(phase => phase.id);
+    const pts = topics.filter(topic => phaseIds.includes(topic.phase_id));
     const progress = pts.length ? Math.round(pts.filter(t => t.status === "completed").length / pts.length * 100) : 0;
     return { ...project, progress, label: project.status.replaceAll("_", " ") };
-  }), [projects, topics]);
+  }), [projects, phases, topics]);
   const overallProgress = topics.length ? Math.round(topics.filter(t => t.status === "completed").length / topics.length * 100) : 0;
 
   if (loading) return <main className="main"><div className="loading-shell"><div className="loading-orb"/><span>Preparing your workspace…</span></div></main>;
